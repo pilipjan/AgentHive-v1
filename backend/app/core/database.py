@@ -1,6 +1,7 @@
 """AgentHive Async Database Engine and Session Management."""
 
 from typing import AsyncGenerator
+from sqlalchemy.pool import NullPool
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -14,7 +15,7 @@ from backend.app.core.logging import logger
 # Base class for all ORM models
 Base = declarative_base()
 
-# Determine database URL - support fallback to sqlite for test/dev if postgres unavailable
+# Determine database URL
 db_url = settings.DATABASE_URL or "sqlite+aiosqlite:///./agenthive_dev.db"
 
 # SQLite specific connect args
@@ -22,11 +23,12 @@ connect_args = {}
 if db_url.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 
-# Async engine
+# Async engine using NullPool for resilient async concurrency
 engine: AsyncEngine = create_async_engine(
     db_url,
     echo=settings.DEBUG,
     future=True,
+    poolclass=NullPool,
     connect_args=connect_args,
 )
 

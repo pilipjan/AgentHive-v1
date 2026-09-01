@@ -2,8 +2,10 @@
 
 from fastapi import APIRouter
 from backend.app.api.v1.health import router as health_router
+from backend.app.api.v1.security import router as security_router
 
 api_v1_router = APIRouter()
 
 # Register subrouters
 api_v1_router.include_router(health_router, tags=["System Health"])
+api_v1_router.include_router(security_router, tags=["Security & Audit"])
