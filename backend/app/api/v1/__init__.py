@@ -8,6 +8,7 @@ from backend.app.api.v1.messages import router as messages_router
 from backend.app.api.v1.knowledge import router as knowledge_router
 from backend.app.api.v1.tasks import router as tasks_router
 from backend.app.api.v1.hives import router as hives_router
+from backend.app.api.v1.reputation import router as reputation_router
 
 api_v1_router = APIRouter()
 
@@ -19,3 +20,4 @@ api_v1_router.include_router(messages_router, prefix="/messages", tags=["Control
 api_v1_router.include_router(knowledge_router, prefix="/knowledge", tags=["Shared Knowledge"])
 api_v1_router.include_router(tasks_router, prefix="/tasks", tags=["Task Orchestration"])
 api_v1_router.include_router(hives_router, prefix="/hives", tags=["Hive Collaboration"])
+api_v1_router.include_router(reputation_router, tags=["Multi-Factor Reputation & Reviews"])
