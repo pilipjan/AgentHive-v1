@@ -140,6 +140,34 @@ export interface ReputationEvent {
   timestamp: string;
 }
 
+export interface JobProposal {
+  id: string;
+  proposal_id: string;
+  agent_id: string;
+  agent_name: string;
+  agent_reputation: number;
+  proposed_strategy: string;
+  estimated_duration_seconds: number;
+  bid_score: number;
+  status: "PENDING" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
+  created_at: string;
+}
+
+export interface JobPosting {
+  id: string;
+  job_id: string;
+  title: string;
+  description: string;
+  requirements: string[];
+  bounty_reward: number;
+  status: "OPEN" | "MATCHING" | "AWARDED" | "COMPLETED" | "CANCELLED";
+  accepted_proposal_id?: string;
+  proposals_count: number;
+  proposals?: JobProposal[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AuditLog {
   id: string;
   timestamp: string;

@@ -7,8 +7,10 @@ import {
   Award,
   Bot,
   Brain,
+  Briefcase,
   CheckCircle2,
   ChevronRight,
+  Coins,
   Database,
   Flame,
   Layers,
@@ -21,6 +23,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Star,
+  TrendingUp,
   Users,
   XCircle,
   Zap,
@@ -31,6 +34,8 @@ import {
   AgentSummary,
   AuditLog,
   HiveItem,
+  JobPosting,
+  JobProposal,
   KnowledgeItem,
   ReputationDetail,
   TaskItem,
@@ -38,7 +43,7 @@ import {
 
 export default function AgentHiveDashboard() {
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "agents" | "tasks" | "hives" | "knowledge" | "reputation" | "security"
+    "dashboard" | "agents" | "tasks" | "hives" | "knowledge" | "reputation" | "security" | "marketplace"
   >("dashboard");
 
   // State
@@ -46,11 +51,13 @@ export default function AgentHiveDashboard() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [hives, setHives] = useState<HiveItem[]>([]);
   const [knowledge, setKnowledge] = useState<KnowledgeItem[]>([]);
+  const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedAgent, setSelectedAgent] = useState<AgentProfile | null>(null);
   const [selectedReputation, setSelectedReputation] = useState<ReputationDetail | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null);
 
   // Real-Time Live Events Stream
   const [liveEvents, setLiveEvents] = useState<
@@ -62,6 +69,7 @@ export default function AgentHiveDashboard() {
   const [showNewAgentModal, setShowNewAgentModal] = useState(false);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [showNewKnowledgeModal, setShowNewKnowledgeModal] = useState(false);
+  const [showNewJobModal, setShowNewJobModal] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState<KnowledgeItem | null>(null);
 
   // Form states
@@ -81,12 +89,20 @@ export default function AgentHiveDashboard() {
     auto_orchestrate: true,
   });
 
+  const [jobForm, setJobForm] = useState({
+    title: "",
+    description: "",
+    requirements: "python, fastapi",
+    bounty_reward: 250,
+    auto_invite_bids: true,
+  });
+
   const [knowledgeForm, setKnowledgeForm] = useState({
     summary: "",
     content: "",
     source_agent_id: "",
     visibility: "PUBLIC",
-    tags: "performance, linux, arm64",
+    tags: "architecture, security",
   });
 
   const [verifyForm, setVerifyForm] = useState({
@@ -95,9 +111,9 @@ export default function AgentHiveDashboard() {
     evidence: "",
   });
 
-  // Security Playground Form
+  // Security test tool state
   const [securityTestInput, setSecurityTestInput] = useState(
-    "Contact support at dev@agenthive.org with API token sk-proj-1234567890abcdefghijklmnopqrstuvwxyz0123456789"
+    'Bearer sk-proj-999999999999999999999999999999999999999999999999\nUser email: alice@company.org\nPhone: +1 555-019-2834'
   );
   const [securityTestResult, setSecurityTestResult] = useState<any>(null);
   const [securityTesting, setSecurityTesting] = useState(false);
@@ -105,15 +121,17 @@ export default function AgentHiveDashboard() {
   // Search & Filters
   const [agentSearch, setAgentSearch] = useState("");
   const [knowledgeSearch, setKnowledgeSearch] = useState("");
+  const [jobSearch, setJobSearch] = useState("");
 
   const refreshAllData = async () => {
     setLoading(true);
     try {
-      const [agentsRes, tasksRes, hivesRes, knowledgeRes, auditRes] = await Promise.allSettled([
+      const [agentsRes, tasksRes, hivesRes, knowledgeRes, jobsRes, auditRes] = await Promise.allSettled([
         api.getAgents(),
         api.getTasks(),
         api.getHives(),
         api.getKnowledge(),
+        api.getJobs(),
         api.getAuditLogs({ limit: 20 }),
       ]);
 
@@ -121,6 +139,7 @@ export default function AgentHiveDashboard() {
       if (tasksRes.status === "fulfilled") setTasks(tasksRes.value.items || []);
       if (hivesRes.status === "fulfilled") setHives(hivesRes.value.items || []);
       if (knowledgeRes.status === "fulfilled") setKnowledge(knowledgeRes.value.items || []);
+      if (jobsRes.status === "fulfilled") setJobs(jobsRes.value.items || []);
       if (auditRes.status === "fulfilled") setAuditLogs(auditRes.value.items || []);
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
@@ -295,6 +314,54 @@ export default function AgentHiveDashboard() {
     }
   };
 
+  const handleCreateJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const reqs = jobForm.requirements
+        .split(",")
+        .map((r) => r.trim())
+        .filter(Boolean);
+      await api.createJob({
+        title: jobForm.title,
+        description: jobForm.description,
+        requirements: reqs,
+        bounty_reward: Number(jobForm.bounty_reward),
+        auto_invite_bids: jobForm.auto_invite_bids,
+      });
+      setShowNewJobModal(false);
+      setJobForm({
+        title: "",
+        description: "",
+        requirements: "python, fastapi",
+        bounty_reward: 250,
+        auto_invite_bids: true,
+      });
+      await refreshAllData();
+    } catch (err: any) {
+      alert(`Error posting marketplace job: ${err.message}`);
+    }
+  };
+
+  const handleAcceptProposal = async (jobId: string, proposalId: string) => {
+    try {
+      const updated = await api.acceptProposal(jobId, proposalId);
+      setSelectedJob(updated);
+      await refreshAllData();
+      alert("Proposal accepted! Task created and dispatched through Multi-Agent Orchestrator.");
+    } catch (err: any) {
+      alert(`Error accepting proposal: ${err.message}`);
+    }
+  };
+
+  const openJobDetail = async (jobId: string) => {
+    try {
+      const details = await api.getJob(jobId);
+      setSelectedJob(details);
+    } catch (err: any) {
+      alert(`Error loading job details: ${err.message}`);
+    }
+  };
+
   const handleRunSecurityTest = async () => {
     setSecurityTesting(true);
     try {
@@ -334,6 +401,13 @@ export default function AgentHiveDashboard() {
       k.tags.some((t) => t.toLowerCase().includes(knowledgeSearch.toLowerCase()))
   );
 
+  const filteredJobs = jobs.filter(
+    (j) =>
+      j.title.toLowerCase().includes(jobSearch.toLowerCase()) ||
+      j.description.toLowerCase().includes(jobSearch.toLowerCase()) ||
+      j.requirements.some((r) => r.toLowerCase().includes(jobSearch.toLowerCase()))
+  );
+
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
       {/* Sidebar */}
@@ -359,6 +433,7 @@ export default function AgentHiveDashboard() {
           <nav className="p-3 space-y-1">
             {[
               { id: "dashboard", label: "Dashboard", icon: Activity, badge: null },
+              { id: "marketplace", label: "Marketplace & Bounties", icon: Briefcase, badge: jobs.length },
               { id: "agents", label: "Agent Registry", icon: Bot, badge: agents.length },
               { id: "tasks", label: "Tasks & Pipeline", icon: Layers, badge: tasks.length },
               { id: "hives", label: "Hive Clusters", icon: Users, badge: hives.length },
@@ -429,6 +504,8 @@ export default function AgentHiveDashboard() {
             <h2 className="text-lg font-semibold capitalize text-slate-100">
               {activeTab === "dashboard"
                 ? "Platform Overview"
+                : activeTab === "marketplace"
+                ? "Agent Marketplace & Task Bounties"
                 : activeTab === "agents"
                 ? "Agent Directory & Verified Identities"
                 : activeTab === "tasks"
@@ -455,6 +532,12 @@ export default function AgentHiveDashboard() {
                 {wsConnected ? "Live WebSocket Stream" : "Syncing..."}
               </span>
             </div>
+            <button
+              onClick={() => setShowNewJobModal(true)}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-medium text-sm transition shadow-md shadow-emerald-500/20"
+            >
+              <Coins className="w-4 h-4" /> Post Bounty
+            </button>
             <button
               onClick={() => setShowNewTaskModal(true)}
               className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-medium text-sm transition shadow-md shadow-amber-500/20"
@@ -681,6 +764,162 @@ export default function AgentHiveDashboard() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* 1.5. AGENT MARKETPLACE & BOUNTIES */}
+          {activeTab === "marketplace" && (
+            <div className="space-y-6 max-w-7xl mx-auto">
+              <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+                <div className="relative w-full sm:w-96">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    placeholder="Search jobs, skills, or bounties..."
+                    value={jobSearch}
+                    onChange={(e) => setJobSearch(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+                  />
+                </div>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <button
+                    onClick={() => setShowNewJobModal(true)}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm transition shadow-lg shadow-emerald-500/20"
+                  >
+                    <Coins className="w-4 h-4" /> Post Task Bounty
+                  </button>
+                </div>
+              </div>
+
+              {/* Marketplace Overview Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between shadow-sm">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider font-semibold text-slate-400">
+                      Open Job Bounties
+                    </p>
+                    <h3 className="text-3xl font-bold mt-1 text-white">
+                      {jobs.filter((j) => j.status === "OPEN" || j.status === "MATCHING").length}
+                    </h3>
+                    <p className="text-xs text-emerald-400 mt-1">Accepting Agent Proposals</p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <Briefcase className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between shadow-sm">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider font-semibold text-slate-400">
+                      Active Bounty Pool
+                    </p>
+                    <h3 className="text-3xl font-bold mt-1 text-white">
+                      🪙 {jobs.reduce((acc, j) => acc + (j.bounty_reward || 0), 0).toLocaleString()}
+                    </h3>
+                    <p className="text-xs text-amber-400 mt-1">Credits Distributed to Agents</p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <Coins className="w-6 h-6" />
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between shadow-sm">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider font-semibold text-slate-400">
+                      Completed Contracts
+                    </p>
+                    <h3 className="text-3xl font-bold mt-1 text-white">
+                      {jobs.filter((j) => j.status === "COMPLETED" || j.status === "AWARDED").length}
+                    </h3>
+                    <p className="text-xs text-blue-400 mt-1">100% Reputation Rewarded</p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <TrendingUp className="w-6 h-6" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Jobs List Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {filteredJobs.map((job) => (
+                  <div
+                    key={job.id}
+                    onClick={() => openJobDetail(job.job_id)}
+                    className="p-6 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition cursor-pointer flex flex-col justify-between space-y-4 hover:shadow-lg hover:shadow-black/40 group"
+                  >
+                    <div>
+                      <div className="flex justify-between items-start gap-3">
+                        <div>
+                          <span className="text-[10px] font-mono text-slate-500">{job.job_id}</span>
+                          <h4 className="font-semibold text-base text-slate-100 group-hover:text-emerald-400 transition mt-0.5">
+                            {job.title}
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-bold font-mono flex items-center gap-1">
+                            🪙 {job.bounty_reward} PTS
+                          </span>
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              job.status === "OPEN"
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : job.status === "MATCHING"
+                                ? "bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse"
+                                : job.status === "AWARDED"
+                                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                : "bg-slate-800 text-slate-400"
+                            }`}
+                          >
+                            {job.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-400 mt-2 line-clamp-2 leading-relaxed">
+                        {job.description}
+                      </p>
+
+                      {job.requirements.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-3">
+                          {job.requirements.map((r, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 rounded-md bg-slate-950 text-slate-400 border border-slate-800/80 text-[11px] font-mono"
+                            >
+                              {r}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="font-medium text-slate-300">
+                          {job.proposals_count} Agent Bids Submitted
+                        </span>
+                      </div>
+                      <span className="text-emerald-400 font-medium group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                        View Proposals &rarr;
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+                {filteredJobs.length === 0 && (
+                  <div className="col-span-full py-16 text-center rounded-2xl border border-dashed border-slate-800 text-slate-500">
+                    <Briefcase className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                    <p className="text-sm">No marketplace jobs or bounties found.</p>
+                    <button
+                      onClick={() => setShowNewJobModal(true)}
+                      className="mt-3 text-xs text-emerald-400 hover:text-emerald-300 font-medium"
+                    >
+                      + Post the First Bounty
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1692,6 +1931,262 @@ export default function AgentHiveDashboard() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* MODAL: Post Task Bounty / Job */}
+      {showNewJobModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-800 p-6 space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Coins className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-lg text-slate-100">Post Task Bounty</h3>
+              </div>
+              <button
+                onClick={() => setShowNewJobModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleCreateJob} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-400 mb-1">Bounty / Job Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Optimize ARM64 AST parser for multi-agent messaging"
+                  value={jobForm.title}
+                  onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 mb-1">Scope, Deliverables & Specifications</label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Describe task scope, technical objectives, and expected deliverables..."
+                  value={jobForm.description}
+                  onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1">Required Skills (comma separated)</label>
+                  <input
+                    type="text"
+                    placeholder="python, fastapi, docker"
+                    value={jobForm.requirements}
+                    onChange={(e) => setJobForm({ ...jobForm, requirements: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">Bounty Reward (Credits)</label>
+                  <input
+                    type="number"
+                    min="10"
+                    max="10000"
+                    value={jobForm.bounty_reward}
+                    onChange={(e) => setJobForm({ ...jobForm, bounty_reward: Number(e.target.value) })}
+                    className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono font-bold"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="auto_invite"
+                  checked={jobForm.auto_invite_bids}
+                  onChange={(e) => setJobForm({ ...jobForm, auto_invite_bids: e.target.checked })}
+                  className="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0"
+                />
+                <label htmlFor="auto_invite" className="text-slate-300">
+                  Auto-invite matching registered agents to generate proposals
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowNewJobModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold"
+                >
+                  Publish Bounty 💰
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DRAWER: Job Details & Competing Agent Bids */}
+      {selectedJob && (
+        <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-slate-900 border-l border-slate-800 z-50 p-6 overflow-y-auto space-y-6 shadow-2xl">
+          <div className="flex justify-between items-start border-b border-slate-800 pb-4">
+            <div>
+              <span className="text-xs font-mono text-slate-500">{selectedJob.job_id}</span>
+              <h3 className="font-bold text-xl text-slate-100 mt-0.5">{selectedJob.title}</h3>
+            </div>
+            <button
+              onClick={() => setSelectedJob(null)}
+              className="text-slate-400 hover:text-white text-lg"
+            >
+              &times;
+            </button>
+          </div>
+
+          {/* Bounty & Status Card */}
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <div>
+              <p className="text-xs text-slate-400">Bounty Reward</p>
+              <div className="flex items-center gap-1.5 text-amber-400 font-bold text-2xl mt-0.5 font-mono">
+                <span>🪙 {selectedJob.bounty_reward} PTS</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-400">Contract Status</p>
+              <span
+                className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-bold font-mono ${
+                  selectedJob.status === "COMPLETED"
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    : selectedJob.status === "AWARDED"
+                    ? "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+                    : selectedJob.status === "MATCHING"
+                    ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
+                    : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                }`}
+              >
+                {selectedJob.status}
+              </span>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Task Scope & Deliverables
+            </h4>
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed whitespace-pre-wrap font-sans">
+              {selectedJob.description}
+            </div>
+          </div>
+
+          {/* Required Capabilities */}
+          {selectedJob.requirements && selectedJob.requirements.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Required Prerequisite Skills
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedJob.requirements.map((r, i) => (
+                  <span
+                    key={i}
+                    className="px-2.5 py-1 rounded-md bg-slate-950 text-slate-300 border border-slate-800 text-xs font-mono"
+                  >
+                    {r}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Competing Agent Proposals / Bids */}
+          <div className="space-y-3 pt-2">
+            <div className="flex justify-between items-center">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Bot className="w-4 h-4 text-emerald-400" /> Competing Agent Bids (Ranked by Multi-Factor Fit)
+              </h4>
+              <span className="text-xs font-mono text-slate-500">
+                {selectedJob.proposals?.length || 0} proposals
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {selectedJob.proposals?.map((proposal, idx) => (
+                <div
+                  key={proposal.id}
+                  className={`p-4 rounded-xl border transition ${
+                    proposal.status === "ACCEPTED"
+                      ? "bg-emerald-950/20 border-emerald-500/50 shadow-md shadow-emerald-500/10"
+                      : "bg-slate-950/80 border-slate-800"
+                  }`}
+                >
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-amber-400 font-mono">
+                        #{idx + 1}
+                      </span>
+                      <div>
+                        <p className="font-semibold text-sm text-slate-200">
+                          {proposal.agent_name}
+                        </p>
+                        <p className="text-[11px] font-mono text-slate-500">{proposal.agent_id}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center gap-1 text-emerald-400 font-bold text-xs font-mono">
+                        <span>{(proposal.bid_score * 100).toFixed(1)}% Match Score</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-amber-400 text-xs justify-end mt-0.5">
+                        <Star className="w-3 h-3 fill-amber-400" />
+                        <span>{proposal.agent_reputation.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Proposed Strategy */}
+                  <div className="mt-3 p-3 rounded-lg bg-slate-900/90 border border-slate-800 text-xs text-slate-300">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">
+                      Proposed Execution Strategy:
+                    </p>
+                    <p className="leading-relaxed font-mono text-[11px]">
+                      {proposal.proposed_strategy}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-mono">
+                      ⏱ Est. Duration: {proposal.estimated_duration_seconds}s
+                    </span>
+
+                    {selectedJob.status !== "COMPLETED" && selectedJob.status !== "AWARDED" && proposal.status === "PENDING" ? (
+                      <button
+                        onClick={() => handleAcceptProposal(selectedJob.job_id, proposal.id)}
+                        className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-sm"
+                      >
+                        Accept Bid & Award 🚀
+                      </button>
+                    ) : (
+                      <span
+                        className={`px-2.5 py-0.5 rounded text-[11px] font-bold ${
+                          proposal.status === "ACCEPTED"
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                            : "bg-slate-800 text-slate-500"
+                        }`}
+                      >
+                        {proposal.status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {(!selectedJob.proposals || selectedJob.proposals.length === 0) && (
+                <div className="p-8 text-center rounded-xl bg-slate-950 border border-slate-800 text-slate-500 text-xs">
+                  No bids submitted for this job yet.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

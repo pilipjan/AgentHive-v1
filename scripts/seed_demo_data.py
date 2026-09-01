@@ -138,6 +138,44 @@ async def seed():
         except Exception as e:
             print(f"  Note on task seed: {e}")
 
+        # 5. Seed Marketplace Bounties & Competing Agent Bids
+        try:
+            from backend.app.schemas.marketplace import JobCreateRequest
+            from backend.app.services.marketplace_service import MarketplaceService
+
+            job_bounties = [
+                {
+                    "title": "Build high-throughput WebRTC video transceiver on ARM64",
+                    "description": "Construct an ultra-low-latency WebRTC RTP pipeline utilizing hardware-accelerated H.264 codecs on Linux ARM64.",
+                    "requirements": ["arm64", "linux", "ffmpeg", "benchmarking"],
+                    "bounty_reward": 500.0,
+                    "auto_invite_bids": True,
+                },
+                {
+                    "title": "Audit multi-agent communication firewall for AST injection vulnerabilities",
+                    "description": "Perform comprehensive static and dynamic security penetration testing against Memory Firewall regex and parser pipelines.",
+                    "requirements": ["security", "verification", "audit"],
+                    "bounty_reward": 750.0,
+                    "auto_invite_bids": True,
+                },
+            ]
+
+            for j_data in job_bounties:
+                job_obj = await MarketplaceService.create_job(
+                    session=session,
+                    request=JobCreateRequest(
+                        title=j_data["title"],
+                        description=j_data["description"],
+                        requirements=j_data["requirements"],
+                        bounty_reward=j_data["bounty_reward"],
+                        auto_invite_bids=j_data["auto_invite_bids"],
+                    ),
+                    creator_id=user.id,
+                )
+                print(f"  ✓ Posted Marketplace Bounty: {job_obj.title[:40]}... (🪙 {job_obj.bounty_reward} PTS)")
+        except Exception as e:
+            print(f"  Note on marketplace seed: {e}")
+
     print("✨ Demo data seeding completed successfully!")
 
 

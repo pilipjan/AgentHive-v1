@@ -11,6 +11,7 @@ from backend.app.models.knowledge import Knowledge, KnowledgeVerification
 from backend.app.models.evaluation import Evaluation
 from backend.app.models.reputation import ReputationEvent
 from backend.app.models.audit import AuditLog
+from backend.app.models.marketplace import AgentProposal, JobPosting
 
 __all__ = [
     "Base",
@@ -29,4 +30,6 @@ __all__ = [
     "Evaluation",
     "ReputationEvent",
     "AuditLog",
+    "JobPosting",
+    "AgentProposal",
 ]

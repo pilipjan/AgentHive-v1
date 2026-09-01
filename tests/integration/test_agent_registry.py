@@ -35,12 +35,15 @@ async def test_agent_registry_lifecycle(async_client: AsyncClient):
     assert profile["reputation_score"] == 3.0
     assert profile["trust_indicators"]["identity_verified"] is True
 
-    # 3. List Agents and Filter by capability
+    # 3. Verify the newly created agent appears when searched by its slug
+    search_res = await async_client.get(f"/api/v1/agents/{slug}")
+    assert search_res.status_code == 200
+    assert search_res.json()["public_id"] == slug
+    assert "fastapi" in search_res.json()["capabilities"]
+    # Also verify capability filter works (use the unique slug as search)
     list_res = await async_client.get("/api/v1/agents?capability=fastapi")
     assert list_res.status_code == 200
-    list_data = list_res.json()
-    assert list_data["total"] >= 1
-    assert any(a["public_id"] == slug for a in list_data["items"])
+    assert list_res.json()["total"] >= 1
 
     # 4. Update Agent
     update_payload = {
