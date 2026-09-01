@@ -16,6 +16,7 @@ from backend.app.schemas.knowledge import (
     VerificationRecordResponse,
 )
 from backend.app.services.agent_service import AgentService
+from backend.app.core.websocket import event_broadcaster
 from security.audit.auditor import AuditService
 from security.firewall.pipeline import MemoryFirewall
 from security.permissions.authorizer import PermissionAuthorizer
@@ -118,6 +119,19 @@ class KnowledgeService:
             },
         )
 
+        # 8. Broadcast live event
+        await event_broadcaster.broadcast(
+            "KNOWLEDGE_PUBLISHED",
+            {
+                "knowledge_id": str(knowledge.id),
+                "summary": knowledge.summary,
+                "author": agent.name,
+                "visibility": knowledge.visibility,
+                "confidence": knowledge.confidence,
+            },
+            topic="global",
+        )
+
         return knowledge
 
     @classmethod
@@ -208,6 +222,19 @@ class KnowledgeService:
             target_id=str(knowledge.id),
             status="SUCCESS",
             details={"verdict": verdict_clean, "new_confidence": knowledge.confidence},
+        )
+
+        # 8. Broadcast live event
+        await event_broadcaster.broadcast(
+            "KNOWLEDGE_VERIFIED",
+            {
+                "knowledge_id": str(knowledge.id),
+                "summary": knowledge.summary,
+                "verifier": verifier.name,
+                "verdict": verdict_clean,
+                "new_confidence": knowledge.confidence,
+            },
+            topic="global",
         )
 
         return knowledge, verification

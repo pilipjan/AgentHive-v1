@@ -52,6 +52,12 @@ export default function AgentHiveDashboard() {
   const [selectedReputation, setSelectedReputation] = useState<ReputationDetail | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
 
+  // Real-Time Live Events Stream
+  const [liveEvents, setLiveEvents] = useState<
+    Array<{ id: string; event: string; timestamp: string; data: any }>
+  >([]);
+  const [wsConnected, setWsConnected] = useState<boolean>(false);
+
   // Modals
   const [showNewAgentModal, setShowNewAgentModal] = useState(false);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
@@ -125,6 +131,61 @@ export default function AgentHiveDashboard() {
 
   useEffect(() => {
     refreshAllData();
+
+    // Setup Live WebSocket connection
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: any = null;
+
+    const connectWS = () => {
+      try {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.hostname}:8000/api/v1/ws/events`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          setWsConnected(true);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            if (parsed.event && parsed.event !== "CONNECTED") {
+              const newEntry = {
+                id: Math.random().toString(36).substring(7),
+                event: parsed.event,
+                timestamp: parsed.timestamp || new Date().toISOString(),
+                data: parsed.data || {},
+              };
+              setLiveEvents((prev) => [newEntry, ...prev.slice(0, 19)]);
+              // Refresh dataset on key platform mutations
+              if (["TASK_STATE_CHANGED", "KNOWLEDGE_PUBLISHED", "KNOWLEDGE_VERIFIED", "AGENT_MESSAGE_SENT"].includes(parsed.event)) {
+                refreshAllData();
+              }
+            }
+          } catch (e) {
+            // Ignore non-json frames
+          }
+        };
+
+        ws.onclose = () => {
+          setWsConnected(false);
+          reconnectTimeout = setTimeout(connectWS, 3000);
+        };
+
+        ws.onerror = () => {
+          setWsConnected(false);
+        };
+      } catch (e) {
+        setWsConnected(false);
+      }
+    };
+
+    connectWS();
+
+    return () => {
+      if (ws) ws.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
   }, []);
 
   const handleCreateAgent = async (e: React.FormEvent) => {
@@ -382,8 +443,18 @@ export default function AgentHiveDashboard() {
             </h2>
           </div>
 
-          {/* Quick Actions */}
+          {/* Quick Actions & Live Stream Badge */}
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  wsConnected ? "bg-emerald-400 animate-ping" : "bg-amber-400"
+                }`}
+              ></span>
+              <span className="font-mono text-slate-300">
+                {wsConnected ? "Live WebSocket Stream" : "Syncing..."}
+              </span>
+            </div>
             <button
               onClick={() => setShowNewTaskModal(true)}
               className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-medium text-sm transition shadow-md shadow-amber-500/20"
@@ -564,6 +635,51 @@ export default function AgentHiveDashboard() {
                       </p>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* Real-Time Live Activity & Telemetry Feed */}
+              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold text-base flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-400 animate-pulse" /> Real-Time Platform Telemetry (WebSocket Feed)
+                  </h3>
+                  <span className="text-xs font-mono text-slate-400">
+                    {liveEvents.length} events captured
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {liveEvents.map((evt) => (
+                    <div
+                      key={evt.id}
+                      className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between text-xs font-mono"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            evt.event === "TASK_STATE_CHANGED"
+                              ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
+                              : evt.event === "KNOWLEDGE_PUBLISHED" || evt.event === "KNOWLEDGE_VERIFIED"
+                              ? "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+                              : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                          }`}
+                        >
+                          {evt.event}
+                        </span>
+                        <span className="text-slate-300">
+                          {evt.data.title || evt.data.summary || evt.data.content_preview || evt.data.message || JSON.stringify(evt.data)}
+                        </span>
+                      </div>
+                      <span className="text-slate-500 text-[10px]">
+                        {new Date(evt.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))}
+                  {liveEvents.length === 0 && (
+                    <div className="py-6 text-center text-slate-500 text-xs">
+                      Listening for real-time WebSocket events... Dispatch a task or send an agent message to watch live telemetry.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

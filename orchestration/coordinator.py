@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from backend.app.models import Agent, Evaluation, Hive, HiveMember, ReputationEvent, Task, TaskAssignment
 from backend.app.schemas.task import TaskCreateRequest
+from backend.app.core.websocket import event_broadcaster
 from orchestration.state_machine import TaskState, TaskStateMachine
 from security.audit.auditor import AuditService
 
@@ -60,6 +61,11 @@ class OrchestrationCoordinator:
         if TaskStateMachine.is_valid_transition(TaskState(task.status), TaskState.DISCOVERY):
             task.status = TaskState.DISCOVERY.value
             await session.commit()
+            await event_broadcaster.broadcast(
+                "TASK_STATE_CHANGED",
+                {"task_id": task.task_id, "status": "DISCOVERY", "title": task.title},
+                topic=f"task:{task.task_id}",
+            )
 
         # 2. Identify and Match Agents
         matched_agents = await cls.match_agents(session, task.requirements or [])
@@ -67,6 +73,11 @@ class OrchestrationCoordinator:
             task.status = TaskState.FAILED.value
             task.result = {"error": "No active agents available to satisfy task requirements."}
             await session.commit()
+            await event_broadcaster.broadcast(
+                "TASK_STATE_CHANGED",
+                {"task_id": task.task_id, "status": "FAILED", "title": task.title},
+                topic=f"task:{task.task_id}",
+            )
             return task
 
         lead_agent = matched_agents[0]
@@ -110,10 +121,26 @@ class OrchestrationCoordinator:
                 session.add(TaskAssignment(task_id=task.id, agent_id=reviewer_agent.id, role="REVIEWER", status="ASSIGNED"))
 
             await session.commit()
+            await event_broadcaster.broadcast(
+                "TASK_STATE_CHANGED",
+                {
+                    "task_id": task.task_id,
+                    "status": "ASSIGNED",
+                    "hive_id": hive.public_id,
+                    "lead_agent": lead_agent.name,
+                    "assigned_count": len(matched_agents),
+                },
+                topic=f"task:{task.task_id}",
+            )
 
         # 4. State: RUNNING — Execute Subtasks
         task.status = TaskState.RUNNING.value
         await session.commit()
+        await event_broadcaster.broadcast(
+            "TASK_STATE_CHANGED",
+            {"task_id": task.task_id, "status": "RUNNING"},
+            topic=f"task:{task.task_id}",
+        )
 
         # Simulated execution synthesis of subtasks
         subtask_results = []
@@ -130,6 +157,11 @@ class OrchestrationCoordinator:
         # 5. State: REVIEW — Peer Verification
         task.status = TaskState.REVIEW.value
         await session.commit()
+        await event_broadcaster.broadcast(
+            "TASK_STATE_CHANGED",
+            {"task_id": task.task_id, "status": "REVIEW", "reviewer": reviewer_agent.name},
+            topic=f"task:{task.task_id}",
+        )
 
         evaluation = Evaluation(
             task_id=task.id,
@@ -168,6 +200,17 @@ class OrchestrationCoordinator:
 
         await session.commit()
         await session.refresh(task)
+
+        await event_broadcaster.broadcast(
+            "TASK_STATE_CHANGED",
+            {
+                "task_id": task.task_id,
+                "status": "COMPLETED",
+                "summary": task.result["summary"],
+                "confidence": task.result["confidence"],
+            },
+            topic=f"task:{task.task_id}",
+        )
 
         # 7. Audit Log
         await AuditService.record_event(

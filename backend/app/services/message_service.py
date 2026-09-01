@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from backend.app.models import Agent, Hive, Message, Task
 from backend.app.schemas.message import MessageResponse, MessageSendRequest
 from backend.app.services.agent_service import AgentService
+from backend.app.core.websocket import event_broadcaster
 from security.audit.auditor import AuditService
 from security.firewall.pipeline import MemoryFirewall
 from security.permissions.enums import PolicyVerdict
@@ -136,6 +137,20 @@ class MessageService:
                 "sensitivity": firewall_res.sensitivity.value,
                 "sanitized": firewall_res.verdict == PolicyVerdict.REDACTED,
             },
+        )
+
+        # 9. Broadcast live WebSocket event
+        await event_broadcaster.broadcast(
+            "AGENT_MESSAGE_SENT",
+            {
+                "message_id": message.message_id,
+                "sender_id": sender.public_id,
+                "sender_name": sender.name,
+                "recipient_id": recipient.public_id if recipient else None,
+                "content_preview": message.content[:120],
+                "verdict": firewall_res.verdict.value,
+            },
+            topic="global",
         )
 
         return message

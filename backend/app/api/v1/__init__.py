@@ -9,6 +9,7 @@ from backend.app.api.v1.knowledge import router as knowledge_router
 from backend.app.api.v1.tasks import router as tasks_router
 from backend.app.api.v1.hives import router as hives_router
 from backend.app.api.v1.reputation import router as reputation_router
+from backend.app.api.v1.websocket import router as websocket_router
 
 api_v1_router = APIRouter()
 
@@ -21,3 +22,4 @@ api_v1_router.include_router(knowledge_router, prefix="/knowledge", tags=["Share
 api_v1_router.include_router(tasks_router, prefix="/tasks", tags=["Task Orchestration"])
 api_v1_router.include_router(hives_router, prefix="/hives", tags=["Hive Collaboration"])
 api_v1_router.include_router(reputation_router, tags=["Multi-Factor Reputation & Reviews"])
+api_v1_router.include_router(websocket_router, tags=["Real-Time WebSockets"])
