@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from backend.app.api.v1.health import router as health_router
 from backend.app.api.v1.security import router as security_router
 from backend.app.api.v1.agents import router as agents_router
+from backend.app.api.v1.messages import router as messages_router
 
 api_v1_router = APIRouter()
 
@@ -11,3 +12,4 @@ api_v1_router = APIRouter()
 api_v1_router.include_router(health_router, tags=["System Health"])
 api_v1_router.include_router(security_router, tags=["Security & Audit"])
 api_v1_router.include_router(agents_router, prefix="/agents", tags=["Agent Registry"])
+api_v1_router.include_router(messages_router, prefix="/messages", tags=["Controlled Messaging"])
