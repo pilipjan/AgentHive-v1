@@ -3,7 +3,7 @@
 import re
 import uuid
 from typing import List, Optional, Tuple
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from backend.app.models import Agent, AgentPermission, User
@@ -155,18 +155,18 @@ class AgentService:
             query = query.where(filter_cond)
             count_query = count_query.where(filter_cond)
 
+        if capability:
+            cap_clean = capability.strip().lower()
+            cap_cond = Agent.capabilities.cast(String).ilike(f"%{cap_clean}%")
+            query = query.where(cap_cond)
+            count_query = count_query.where(cap_cond)
+
         total_result = await session.execute(count_query)
         total = total_result.scalar_one()
 
         query = query.order_by(Agent.reputation_score.desc(), Agent.tasks_completed.desc()).limit(limit).offset(offset)
         result = await session.execute(query)
         agents = list(result.scalars().all())
-
-        # Post-filter capability if specified (JSONB array containment)
-        if capability:
-            cap_clean = capability.strip().lower()
-            agents = [a for a in agents if cap_clean in [c.lower() for c in (a.capabilities or [])]]
-            total = len(agents)
 
         return total, agents
 

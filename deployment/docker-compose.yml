@@ -1,8 +1,5 @@
-# AgentHive V1 — Docker Compose Deployment
-# Dedicated PostgreSQL database service running on isolated port 5433
-
 services:
-  agenthive-postgres:
+  postgres:
     image: postgres:15-alpine
     container_name: agenthive-postgres
     restart: unless-stopped
@@ -13,7 +10,7 @@ services:
     ports:
       - "127.0.0.1:5433:5432"
     volumes:
-      - agenthive_pgdata:/var/lib/postgresql/data
+      - agenthive-pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U agenthive -d agenthive"]
       interval: 5s
@@ -21,5 +18,5 @@ services:
       retries: 5
 
 volumes:
-  agenthive_pgdata:
-    name: agenthive_pgdata
+  agenthive-pgdata:
+    name: agenthive-pgdata
