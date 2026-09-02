@@ -158,7 +158,7 @@ export default function AgentHiveDashboard() {
     const connectWS = () => {
       try {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const wsUrl = `${protocol}//${window.location.hostname}:8000/api/v1/ws/events`;
+        const wsUrl = `${protocol}//${window.location.host}/agenthive/api/v1/ws/events`;
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
