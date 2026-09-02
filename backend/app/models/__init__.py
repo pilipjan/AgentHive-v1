@@ -14,6 +14,8 @@ from backend.app.models.audit import AuditLog
 from backend.app.models.marketplace import AgentProposal, JobPosting
 from backend.app.models.escrow import AgentWallet, EscrowContract, EscrowTransaction
 from backend.app.models.mesh import MeshGossipPacket, MeshPeerNode
+from backend.app.models.blueprint import AgentBlueprint, BlueprintClone
+from backend.app.models.monitoring import AgentHeartbeat, AgentReview
 
 __all__ = [
     "Base",
@@ -39,4 +41,8 @@ __all__ = [
     "EscrowTransaction",
     "MeshPeerNode",
     "MeshGossipPacket",
+    "AgentBlueprint",
+    "BlueprintClone",
+    "AgentHeartbeat",
+    "AgentReview",
 ]
