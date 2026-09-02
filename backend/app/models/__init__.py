@@ -13,6 +13,7 @@ from backend.app.models.reputation import ReputationEvent
 from backend.app.models.audit import AuditLog
 from backend.app.models.marketplace import AgentProposal, JobPosting
 from backend.app.models.escrow import AgentWallet, EscrowContract, EscrowTransaction
+from backend.app.models.mesh import MeshGossipPacket, MeshPeerNode
 
 __all__ = [
     "Base",
@@ -36,4 +37,6 @@ __all__ = [
     "AgentWallet",
     "EscrowContract",
     "EscrowTransaction",
+    "MeshPeerNode",
+    "MeshGossipPacket",
 ]

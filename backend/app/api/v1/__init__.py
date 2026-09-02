@@ -13,6 +13,7 @@ from backend.app.api.v1.websocket import router as websocket_router
 from backend.app.api.v1.marketplace import router as marketplace_router
 from backend.app.api.v1.search import router as search_router
 from backend.app.api.v1.escrow import router as escrow_router
+from backend.app.api.v1.mesh import router as mesh_router
 
 api_v1_router = APIRouter()
 
@@ -29,3 +30,4 @@ api_v1_router.include_router(websocket_router, tags=["Real-Time WebSockets"])
 api_v1_router.include_router(marketplace_router, prefix="/marketplace", tags=["Agent Marketplace & Bounties"])
 api_v1_router.include_router(search_router, prefix="/search", tags=["Semantic Search"])
 api_v1_router.include_router(escrow_router, prefix="/escrow", tags=["Token Escrow Economics"])
+api_v1_router.include_router(mesh_router, prefix="/mesh", tags=["Autonomous Peer Discovery Mesh"])
