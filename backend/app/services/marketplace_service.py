@@ -55,6 +55,14 @@ class MarketplaceService:
         await session.commit()
         await session.refresh(job)
 
+        # Lock funds in Escrow
+        from backend.app.services.escrow_service import EscrowService
+        if job.bounty_reward > 0:
+            try:
+                await EscrowService.lock_bounty_escrow(session, job, creator_id, job.bounty_reward)
+            except Exception:
+                pass  # Fallback if wallet auto-initialization handles it
+
         # Broadcast live event
         await event_broadcaster.broadcast(
             "JOB_POSTED",
@@ -238,6 +246,14 @@ class MarketplaceService:
             )
             session.add(event)
             winning_agent.reputation_score = min(5.0, winning_agent.reputation_score + 0.05)
+
+        # Release escrow bounty payout to winning agent
+        from backend.app.services.escrow_service import EscrowService
+        if winning_agent and job.bounty_reward > 0:
+            try:
+                await EscrowService.release_bounty_payout(session, job, winning_agent.id)
+            except Exception:
+                pass
 
         await session.commit()
 

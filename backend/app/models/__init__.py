@@ -12,6 +12,7 @@ from backend.app.models.evaluation import Evaluation
 from backend.app.models.reputation import ReputationEvent
 from backend.app.models.audit import AuditLog
 from backend.app.models.marketplace import AgentProposal, JobPosting
+from backend.app.models.escrow import AgentWallet, EscrowContract, EscrowTransaction
 
 __all__ = [
     "Base",
@@ -32,4 +33,7 @@ __all__ = [
     "AuditLog",
     "JobPosting",
     "AgentProposal",
+    "AgentWallet",
+    "EscrowContract",
+    "EscrowTransaction",
 ]
