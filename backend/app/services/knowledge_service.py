@@ -132,6 +132,15 @@ class KnowledgeService:
             topic="global",
         )
 
+        # 9. Auto-embed for semantic search (non-blocking)
+        try:
+            from backend.app.services.semantic_search_service import SemanticSearchService
+            embed_text = f"{knowledge.summary}. {knowledge.content}"
+            await SemanticSearchService.embed_knowledge_entry(session, knowledge.id, embed_text)
+            await session.commit()
+        except Exception:
+            pass  # Embedding is optional — don't fail the publish
+
         return knowledge
 
     @classmethod

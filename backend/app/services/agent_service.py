@@ -110,6 +110,14 @@ class AgentService:
             details={"name": agent.name, "capabilities": clean_capabilities},
         )
 
+        # Auto-embed agent capabilities for semantic discovery (non-blocking)
+        try:
+            from backend.app.services.semantic_search_service import SemanticSearchService
+            await SemanticSearchService.embed_agent_capabilities(session, agent.id, clean_capabilities)
+            await session.commit()
+        except Exception:
+            pass
+
         return agent
 
     @classmethod
